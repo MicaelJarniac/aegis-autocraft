@@ -86,8 +86,8 @@ Order any end product and the recursive engine builds the full crafting tree, ch
 - **1MB Filesystem Limit**: CC:Tweaked caps total computer directory size to 1MB. If new recipes fail to save or vanish on reboot, your computer folder is full — delete old `.BAK` backup files.
 - **Computer Placement**: Advanced Computer MUST be directly to the LEFT of the monitor wall.
 - **Mod Inventory Restrictions**: Some modded machines restrict pulling items from input slots. If you cancel a craft, check input slots manually. <details><summary>view screenshot</summary><img src="/images/2026-08-09-21-08-50.png" width="500"></details>
-- **Direct Modem Issues**: If a modded block don't care about with CC:Tweaked's Inventory API or modem connection, route items through a standard transfer chest. [The workaround is that your mod doesn't use the API cc tweced](https://www.reddit.com/r/ComputerCraft/comments/1uyx4td/comment/oy8femh/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)
-- **Solid fuel furnace EXPANSION** [ FUEL FURNACE ](https://www.reddit.com/r/ComputerCraft/comments/1uyx4td/comment/oyb7z51/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)
+- **Direct Modem Issues**:  [If the mod machine is not supported by the cc tweced API, use transfer chests. GUIDE](https://www.reddit.com/r/ComputerCraft/comments/1uyx4td/comment/oy8femh/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)
+- **Working with solid fuel furnaces ** [ FUEL FURNACE guide ](https://www.reddit.com/r/ComputerCraft/comments/1uyx4td/comment/oyb7z51/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)
 - **Vault Capacity**: Keep an eye on free vault and tank space at the top of the monitor so collection tasks have room to unload. <details><summary>view screenshot</summary><img src="/images/2026-08-09-20-57-35.png" width="500"></details>
 
 ---
