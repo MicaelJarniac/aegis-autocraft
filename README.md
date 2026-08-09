@@ -55,7 +55,7 @@ Order any end product and the recursive engine builds the full crafting tree, ch
 
 ### Machine Grouping & Multiblocks
 - **Auto-Grouping**: Machines with the same peripheral name automatically form a pool. <details><summary>view screenshot</summary><img src="./images/2026-08-09-20-37-29.png" width="500"></details>
-- **Custom Groups**: Group specific machines manually (e.g. split Create Depots into `Depot Forge` vs `Depot Press`). (IF YOU ADD CARS TO A CUSTOM GROUP, CAREFULLY EXCLUDE THEM FROM THE AUTOMATIC GROUPING) .<details><summary>view screenshot</summary><img src="./images/2026-08-09-20-39-38.png" width="500"></details>
+- **Custom Groups**: Group specific machines manually (e.g. split Create Depots into `Depot Forge` vs `Depot Press`). (IF YOU ADD MACHINE TO A CUSTOM GROUP, CAREFULLY EXCLUDE THEM FROM THE AUTOMATIC GROUPING) .<details><summary>view screenshot</summary><img src="./images/2026-08-09-20-39-38.png" width="500"></details>
 - **Exclusions & Suffixes**: Exclude specific machines from pools, or add custom visual suffixes (`SUF`) in the NETWORK tab without breaking pooling. <details><summary>view screenshot</summary><img src="./images/2026-08-09-20-25-28.png" width="500"></details>
 - **Multiblock Split I/O**: Supports separate input and output hatches on multiblocks. <details><summary>view screenshot</summary><img src="/images/2026-08-09-20-20-44.png" width="500"></details>
 
