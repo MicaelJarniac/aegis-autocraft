@@ -93,3 +93,5 @@ Order any end product and the recursive engine builds the full crafting tree, ch
 ---
 
 Community & Support: https://www.reddit.com/r/ComputerCraft/comments/1uyx4td/aegis_autocraft_for_computercraft_cctweaked/
+
+Setup & guide: https://youtu.be/mhVkOqG2S1A?si=LeTGJ9jsijtcVPoM
