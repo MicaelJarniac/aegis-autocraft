@@ -1,5 +1,5 @@
 local gridSlots = {1, 2, 3, 5, 6, 7, 9, 10, 11}
-local LAYOUT_DELAY = 1
+local LAYOUT_DELAY = 1.5
 
 local function getGridCount()
     local total = 0
@@ -26,7 +26,10 @@ local function craftLoop()
             local sig = gridSig()
             if sig ~= lastFailSig then
                 sleep(LAYOUT_DELAY)
-                if turtle.getItemCount(16) == 0 and getGridCount() > 0 then
+                local sig2 = gridSig()
+                if sig2 ~= sig then
+                    sleep(0.2)
+                elseif turtle.getItemCount(16) == 0 and getGridCount() > 0 then
                     local ok = turtle.craft()
                     if not ok then lastFailSig = gridSig() end
                 end
