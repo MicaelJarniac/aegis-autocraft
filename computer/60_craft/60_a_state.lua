@@ -1,0 +1,52 @@
+-- init through reset fn so error handlers can just call resetErr() to wipe.
+-- dont copy the empty shape into two places, they will drift
+function resetErr() craftErrLines = {}; craftErrTitle = nil end
+resetErr()
+craftErrEdit = {}
+queueEditPopup     = false
+queueErrIdx    = nil
+queueScroll    = 0
+queueEditIdx        = nil
+selCraftType   = "turtle"
+sysStatus        = "IDLE"
+craftSubTab         = "TURTLE"
+craftDevPage     = 1
+selOut = nil
+outPickMode      = false
+altViewItem    = nil
+altViewFluid   = nil
+learnAsAlt     = false
+learnAsAltItem = nil
+keepThr              = 0
+keepTgt              = 0
+keepField            = "threshold"
+pendDelItem      = nil
+isRequestMode          = false
+reqMaxQty          = 0
+pickerCraftable     = 0
+pickerCapped        = false
+pickerMaxSet      = true
+pickerHdr       = nil
+calcNodes              = 0
+calcBudget             = 0
+-- 100 = ui stays snappy. tried 500, whole thing froze mid-scan. dont touch
+CALC_BUDGET            = 100
+qtyOrigTab           = "RECIPES"
+craftDonePopup     = nil
+scanActive    = false
+scanTimer     = nil
+recipesScan = {}
+craftInfoPop     = nil
+machInfoPopup   = nil
+recipeEditPop    = nil
+altOutEdit         = nil
+itemToCraft          = ""
+craftQuantity        = 1
+isSettingKeep   = false
+learnState        = "IDLE"
+learnedResult        = nil
+learnedIngs   = nil
+learnedTools         = nil
+learnedType     = ""
+learnedMach   = ""
+learnedOut  = nil

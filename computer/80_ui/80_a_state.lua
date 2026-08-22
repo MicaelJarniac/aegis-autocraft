@@ -1,0 +1,13 @@
+curTab       = "RECIPES"
+modFilter = "All"
+srchFilter     = ""
+curPage      = 1
+modFilterPage    = 1
+stockFilter      = ""
+stockModFilter         = "All"
+stockFilterPage     = 1
+isSearch      = false
+stockSearchOn = false
+qtyTypeAct          = false
+craftHistory       = {}
+historyPopup       = nil
