@@ -16,7 +16,7 @@ function isFluidPeri(name)
 	if not name or name == "" or name == "STORAGE" then return false end
 	if Config.fluid_tanks and Config.fluid_tanks[name] then return true end
 	local w = peripheral.wrap(name)
-	if w and w.tanks and not w.list then return true end
+	if w and w.tanks and not w.list and not w.getItems then return true end
 	return false
 end
 

@@ -480,7 +480,11 @@ function drawMgmtEdit(w, h, touchZones, popupRect, popupZoneS)
 		UI.zone(touchZones, "mgmt_toggle_drain", nil, pX + 1, ry, pW - 2)
 		ry = ry + 1
 		local provOn = mgmtPopup.provider or false
-		drawText(pX + 1, ry, (provOn and " [PROVIDER] ON (pull-only src) " or " [PROVIDER] OFF"):sub(1, pW - 2),
+		local provSuf = " (pull-only src) "
+		for _, nm in ipairs(mgmtPopup.inputs or {}) do
+			if isBridge(nm) then provSuf = " (ME/RS pull-only) "; break end
+		end
+		drawText(pX + 1, ry, (provOn and " [PROVIDER] ON" .. provSuf or " [PROVIDER] OFF"):sub(1, pW - 2),
 			provOn and colors.black or colors.lightGray, provOn and colors.orange or colors.gray)
 		UI.zone(touchZones, "mgmt_toggle_provider", nil, pX + 1, ry, pW - 2)
 		ry = ry + 1
@@ -598,6 +602,11 @@ function _drawMgmtItemPicker(w, h, touchZones)
 				local ok, lst = pcall(p.list)
 				if ok and lst then
 					for _, it in pairs(lst) do if it then by[it.name] = (by[it.name] or 0) + it.count end end
+				end
+			elseif p and p.getItems then
+				local ok, lst = pcall(p.getItems)
+				if ok and lst then
+					for _, it in pairs(lst) do if it and it.name then by[it.name] = (by[it.name] or 0) + (it.count or 0) end end
 				end
 			end
 		end

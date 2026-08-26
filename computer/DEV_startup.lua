@@ -31,6 +31,8 @@ for _, f in ipairs(files) do
 	h.close()
 end
 
+_DEV_MODE = true
+
 local chunk, err = load(table.concat(buf, "\n"), "aegis")
 if not chunk then error("A.E.G.I.S load error: " .. err, 0) end
 

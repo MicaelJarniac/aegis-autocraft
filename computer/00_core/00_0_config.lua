@@ -23,3 +23,5 @@ Config = {
 }
 
 function shortName(n) return n and (n:match(":(.+)$") or n) end
+
+_B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"

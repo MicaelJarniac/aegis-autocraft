@@ -213,7 +213,6 @@ function drawFluidLearn(w, h, touchZones)
 		end
 	end
 end
-_B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 function runMachineSearch()
 	if not Config.train_box or Config.train_box == "" then

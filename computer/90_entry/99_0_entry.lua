@@ -4,6 +4,18 @@ local function runMain()
 	syncFluidStubs()
 	openRemote()
 	dbgInit()
+	if _DEV_MODE and not getmetatable(_G) then
+		local seen = {}
+		for k in pairs(_G) do seen[k] = true end
+		setmetatable(_G, {__newindex = function(t, k, v)
+			if not seen[k] then
+				seen[k] = true
+				local fh = fs.open("dev_globals.log", "a")
+				if fh then fh.writeLine(os.clock() .. " " .. tostring(k)); fh.close() end
+			end
+			rawset(t, k, v)
+		end})
+	end
 	parallel.waitForAny(
 		function()
 			while true do

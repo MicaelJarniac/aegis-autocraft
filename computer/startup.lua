@@ -24,6 +24,8 @@ github_token     = "",
 }
 
 function shortName(n) return n and (n:match(":(.+)$") or n) end
+
+_B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 -->00_core/00_0_config.lua
 --<00_core/00_1_legacy_globals.lua
 Recipes          = {}
@@ -453,7 +455,10 @@ end
 end
 end
 end
-local provNames = providerSrc()
+local provNames = {}
+for _, nm in ipairs(providerSrc()) do
+if not isBridge(nm) then provNames[#provNames + 1] = nm end
+end
 local pScan = scanPeriph(provNames, "list")
 for _, nm in ipairs(provNames) do
 local e = pScan[nm]
@@ -462,6 +467,9 @@ for _, item in pairs(e.data) do
 if item then inventory[item.name] = (inventory[item.name] or 0) + item.count end
 end
 end
+end
+for name, cnt in pairs(bridgeStock()) do
+inventory[name] = (inventory[name] or 0) + cnt
 end
 local freeSlots = totalSlots - usedSlots
 return inventory, totalItems, vaultsCnt, freeSlots, totalSlots
@@ -596,7 +604,7 @@ seen[storageName] = true; names[#names + 1] = storageName
 end
 end
 for _, pName in ipairs(providerSrc()) do
-if not seen[pName] then seen[pName] = true; names[#names + 1] = pName end
+if not seen[pName] and not isBridge(pName) then seen[pName] = true; names[#names + 1] = pName end
 end
 return names
 end
@@ -649,13 +657,14 @@ if ok and mv then moved = moved + mv end
 if targetSlot and (mv or 0) == 0 then return "reject" end
 end
 
+local rejected = false
 for _, entry in ipairs(exactSlots) do
 if Craft.cancelled or moved >= amountNeeded then break end
-if verifiedPush(entry) == "reject" then break end
+if verifiedPush(entry) == "reject" then rejected = true; break end
 end
 for _, entry in ipairs(altSlots) do
 if Craft.cancelled or moved >= amountNeeded then break end
-if verifiedPush(entry) == "reject" then break end
+if verifiedPush(entry) == "reject" then rejected = true; break end
 end
 
 if moved < amountNeeded and targetMach then
@@ -698,10 +707,100 @@ if not Craft.cancelled then pullReverse(altSlots)   end
 end
 end
 
+if moved < amountNeeded and targetMach and not rejected and not Craft.cancelled then
+moved = moved + bridgeFeed(itemName, amountNeeded - moved, targetMach, targetSlot)
+end
+
 if moved > 0 then resetStock() end
 return moved
 end
 -->20_storage/20_0_inventory.lua
+--<20_storage/20_1_bridge.lua
+
+function isBridge(name)
+if not name or name == "" or name == "STORAGE" then return false end
+local p = peripheral.wrap(name)
+if not p then return false end
+return p.getItems ~= nil and p.exportItem ~= nil
+end
+
+function bridgeSrc()
+local out = {}
+for _, nm in ipairs(providerSrc()) do
+if isBridge(nm) then out[#out + 1] = nm end
+end
+return out
+end
+
+function bridgeStock()
+local out = {}
+for _, nm in ipairs(bridgeSrc()) do
+local b = peripheral.wrap(nm)
+if b then
+local ok, items = pcall(b.getItems)
+if ok and type(items) == "table" then
+for _, it in pairs(items) do
+if it and it.name then
+out[it.name] = (out[it.name] or 0) + (it.count or it.amount or 0)
+end
+end
+end
+end
+end
+return out
+end
+
+function bridgeExport(itemName, amount, dstName)
+if not dstName or amount <= 0 then return 0 end
+local moved = 0
+for _, nm in ipairs(bridgeSrc()) do
+if moved >= amount then break end
+local b = peripheral.wrap(nm)
+if b then
+local ok, mv, err = pcall(b.exportItem, {name = itemName, count = amount - moved}, dstName)
+if ok and type(mv) == "number" then moved = moved + mv end
+if not ok then err = mv end
+if err then
+dbgWrite(string.format("bridge.export %s -> %s : %s", shortName(itemName), tostring(dstName), tostring(err)))
+end
+end
+end
+if moved > 0 then resetStock() end
+return moved
+end
+
+function bridgeStage(itemName, amount)
+if amount <= 0 or #bridgeSrc() == 0 then return nil, 0 end
+for sName, isEnabled in pairs(Config.storages) do
+if isEnabled and not SYSTEM_SIDES[sName] then
+local mv = bridgeExport(itemName, amount, sName)
+if mv > 0 then return sName, mv end
+end
+end
+return nil, 0
+end
+
+function bridgeFeed(itemName, amount, dstName, dstSlot)
+if amount <= 0 or #bridgeSrc() == 0 then return 0 end
+if not dstSlot then return bridgeExport(itemName, amount, dstName) end
+local vault, staged = bridgeStage(itemName, amount)
+local sto = vault and peripheral.wrap(vault)
+if not sto then return 0 end
+local ok, items = pcall(sto.list)
+if not (ok and items) then return 0 end
+local moved = 0
+for slot, it in pairs(items) do
+if moved >= staged then break end
+if it and it.name == itemName then
+local ok2, mv = pcall(sto.pushItems, dstName, slot, staged - moved, dstSlot)
+if ok2 and mv then moved = moved + mv end
+if (mv or 0) == 0 then break end
+end
+end
+if moved > 0 then resetStock() end
+return moved
+end
+-->20_storage/20_1_bridge.lua
 --<30_fluids/30_0_inventory.lua
 function fluidKey(fluidName) return "f:" .. fluidName end
 
@@ -2567,7 +2666,6 @@ local turtlePool     = turtleCtx.turtlePool
 local turtleSlots    = turtleCtx.turtleSlots
 local sortedStore = turtleCtx.sortedStore
 local provSrc        = turtleCtx.provSrc
-local firstStore   = turtleCtx.firstStore
 local myCleanup      = turtleCtx.myCleanup
 local assignments    = turtleCtx.assignments
 local step           = turtleCtx.step
@@ -2579,6 +2677,7 @@ local plan, i        = turtleCtx.plan, turtleCtx.i
 local desc           = turtleCtx.desc
 
 local dryStreak, feasRetries = 0, 0
+local absTarget = (turtleCtx.baselineStore or 0) + totalNeed * (step.output_count or 1)
 
 while totalDone < totalNeed do
 if Craft.cancelled then
@@ -2619,17 +2718,16 @@ end
 local tScanList = {}
 for _, s in ipairs(sortedStore) do tScanList[#tScanList + 1] = s end
 for _, s in ipairs(provSrc)        do tScanList[#tScanList + 1] = s end
+local tScan = scanPeriph(tScanList, "list")
 for _, stoName in ipairs(tScanList) do
-local sto = peripheral.wrap(stoName)
-if sto and sto.list and sto.pushItems then
-local okL, lst = pcall(sto.list)
-if okL and lst then
-for slot, it in pairs(lst) do
+local e = tScan[stoName]
+local sto = e and e.data and peripheral.wrap(stoName)
+if sto and sto.pushItems then
+for slot, it in pairs(e.data) do
 if it and tStock[it.name] ~= nil and (it.count or 0) > 0 then
 tStock[it.name] = tStock[it.name] + it.count
 local arr = srcByName[it.name]
 arr[#arr + 1] = {sto = sto, slot = slot, count = it.count}
-end
 end
 end
 end
@@ -2680,8 +2778,14 @@ end
 constCap = constCap or 0
 
 if feasibleOps <= 0 then
+local remaining = totalNeed - totalDone
+for ing, perOp in pairs(ingNeed) do
+if not helpers.isTool(ing) then
+local short = perOp * remaining - groupAvail(ing, tStock)
+if short > 0 then bridgeStage(ing, short) end
+end
+end
 resetStock()
-local absTarget = (turtleCtx.baselineStore or 0) + totalNeed * (step.output_count or 1)
 if groupAvail(step.item, getInvCached()) >= absTarget then
 break
 end
@@ -2695,7 +2799,6 @@ goto continue_iter
 end
 local itemShort = shortName(step.item)
 craftErrTitle = "! NEED"
-local remaining = totalNeed - totalDone
 local parts = {}
 for ing, perOp in pairs(ingNeed) do
 local short = perOp * remaining - groupAvail(ing, tStock)
@@ -2716,6 +2819,7 @@ for ing in pairs(ingNeed) do
 if helpers.isTool(ing) and (tStock[ing] or 0) < 1 then toolMissing = ing; break end
 end
 if toolMissing then
+bridgeStage(toolMissing, 1)
 releaseTokens(node.tokens)
 local okTool, toolErr = ensureItem(toolMissing, 1)
 while not Craft.cancelled and not ctx.failed do
@@ -2862,23 +2966,29 @@ local batchTotal    = #active
 for ci, asgn in ipairs(active) do
 local tName = asgn.name
 local ri    = ci
+local want  = (asgn.curBatch or 1) * (step.output_count or 1)
 craftTasks[#craftTasks + 1] = function()
-local crafted = false
-local so = peripheral.wrap(firstStore)
-for _ = 1, 120 do
+local got, si, idle = 0, 0, 0
+while idle < 240 do
 sleepCancel(0.05)
 if Craft.cancelled then break end
-if so and so.pullItems then
-local s, res = pcall(so.pullItems, tName, 16, 64)
-if s and res and res > 0 then crafted = true; break end
+si = si % #sortedStore + 1
+local sto = peripheral.wrap(sortedStore[si])
+local mv = 0
+if sto and sto.pullItems then
+local okp, res = pcall(sto.pullItems, tName, 16, 64)
+if okp and res then mv = res end
+end
+if mv > 0 then
+got = got + mv
+idle = 0
+if got >= want then break end
+else
+idle = idle + 1
 end
 end
-if crafted then
-if so and so.pullItems then
-for slot = 1, 15 do pcall(so.pullItems, tName, slot, 64) end
-end
-end
-craftResults[ri] = crafted
+if got > 0 then helpers.clearGrid(tName) end
+craftResults[ri] = got
 numDone = numDone + 1
 end
 end
@@ -2901,9 +3011,10 @@ parallel.waitForAll(table.unpack(craftTasks))
 
 local anyOk, lastFailName = false, nil
 for ci, asgn in ipairs(active) do
-if craftResults[ci] then
+local batch = math.floor((craftResults[ci] or 0) / (step.output_count or 1))
+if batch > asgn.remaining then batch = asgn.remaining end
+if batch > 0 then
 anyOk = true
-local batch = (asgn.curBatch or 1)
 asgn.remaining = asgn.remaining - batch
 totalDone = totalDone + batch
 local produced = batch * (step.output_count or 1)
@@ -2919,6 +3030,8 @@ end
 if anyOk then
 dryStreak = 0
 elseif lastFailName then
+resetStock()
+if groupAvail(step.item, getInvCached()) >= absTarget then break end
 dryStreak = dryStreak + 1
 dbgWrite(string.format("j=%d s=%d turtle.retry idx=%d item=%s reason=dry try=%d turtle=%s done=%d/%d",
 Craft.jobId or 0, ctx.subId or 0, node.idx or 0,
@@ -2974,7 +3087,6 @@ end
 function _execStepTurtle(step, ctx, node, state)
 local sortedStore = state.sortedStore
 local provSrc        = state.provSrc
-local firstStore   = state.firstStore
 local myCleanup      = state.myCleanup
 local helpers        = state.helpers
 local plan, i        = state.plan, state.i
@@ -3016,25 +3128,25 @@ failReason(Craft.cancelled and "turtle.cancel_before_run" or "turtle.ctx_failed_
 return false
 end
 end
-local storageObj = peripheral.wrap(firstStore)
 
-helpers.slotsDirty = function(tName)
+helpers.dirtySlots = function(tName)
 local tp = peripheral.wrap(tName)
 if not (tp and tp.list) then return nil end
 local ok, its = pcall(tp.list)
 if not (ok and its) then return nil end
-for _, it in pairs(its) do
-if it and (it.count or 0) > 0 then return true end
+local slots = {}
+for slot, it in pairs(its) do
+if it and (it.count or 0) > 0 then slots[#slots + 1] = slot end
 end
-return false
+return slots
 end
 
 helpers.clearGrid = function(tName)
-local dirty = helpers.slotsDirty(tName)
-if dirty == false then return true end
-if dirty == nil then return blindUnload(tName, sortedStore) end
 for _attempt = 1, 3 do
-for slot = 1, 16 do
+local slots = helpers.dirtySlots(tName)
+if slots == nil then return blindUnload(tName, sortedStore) end
+if #slots == 0 then return true end
+for _, slot in ipairs(slots) do
 for _, stoName in ipairs(sortedStore) do
 local sto = peripheral.wrap(stoName)
 if sto and sto.pullItems then
@@ -3043,9 +3155,9 @@ if okp and mv and mv > 0 then break end
 end
 end
 end
-if helpers.slotsDirty(tName) ~= true then return true end
 end
-return false
+local left = helpers.dirtySlots(tName)
+return left ~= nil and #left == 0
 end
 
 for _, tName in ipairs(turtlePool) do helpers.clearGrid(tName) end
@@ -3094,7 +3206,7 @@ helpers.isTool = function(n) return toolSet[n] and true or false end
 local turtleCtx = {
 turtlePool = turtlePool, turtleSlots = turtleSlots,
 sortedStore = sortedStore, provSrc = provSrc,
-firstStore = firstStore, myCleanup = myCleanup,
+myCleanup = myCleanup,
 assignments = assignments, step = step,
 totalDone = totalDone, totalNeed = totalNeed,
 turtleStall = turtleStall, helpers = helpers,
@@ -5238,7 +5350,7 @@ function isFluidPeri(name)
 if not name or name == "" or name == "STORAGE" then return false end
 if Config.fluid_tanks and Config.fluid_tanks[name] then return true end
 local w = peripheral.wrap(name)
-if w and w.tanks and not w.list then return true end
+if w and w.tanks and not w.list and not w.getItems then return true end
 return false
 end
 
@@ -7108,7 +7220,6 @@ table.insert(touchZones, {id="fluid_learn_back_inputs", x1=sX, x2=sX+#backS-1, y
 end
 end
 end
-_B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 function runMachineSearch()
 if not Config.train_box or Config.train_box == "" then
@@ -9176,7 +9287,11 @@ drawText(pX + 1, ry, drainLbl, drainOn and colors.black or colors.lightGray, dra
 UI.zone(touchZones, "mgmt_toggle_drain", nil, pX + 1, ry, pW - 2)
 ry = ry + 1
 local provOn = mgmtPopup.provider or false
-drawText(pX + 1, ry, (provOn and " [PROVIDER] ON (pull-only src) " or " [PROVIDER] OFF"):sub(1, pW - 2),
+local provSuf = " (pull-only src) "
+for _, nm in ipairs(mgmtPopup.inputs or {}) do
+if isBridge(nm) then provSuf = " (ME/RS pull-only) "; break end
+end
+drawText(pX + 1, ry, (provOn and " [PROVIDER] ON" .. provSuf or " [PROVIDER] OFF"):sub(1, pW - 2),
 provOn and colors.black or colors.lightGray, provOn and colors.orange or colors.gray)
 UI.zone(touchZones, "mgmt_toggle_provider", nil, pX + 1, ry, pW - 2)
 ry = ry + 1
@@ -9294,6 +9409,11 @@ if p and p.list then
 local ok, lst = pcall(p.list)
 if ok and lst then
 for _, it in pairs(lst) do if it then by[it.name] = (by[it.name] or 0) + it.count end end
+end
+elseif p and p.getItems then
+local ok, lst = pcall(p.getItems)
+if ok and lst then
+for _, it in pairs(lst) do if it and it.name then by[it.name] = (by[it.name] or 0) + (it.count or 0) end end
 end
 end
 end
@@ -12433,6 +12553,18 @@ loadData()
 syncFluidStubs()
 openRemote()
 dbgInit()
+if _DEV_MODE and not getmetatable(_G) then
+local seen = {}
+for k in pairs(_G) do seen[k] = true end
+setmetatable(_G, {__newindex = function(t, k, v)
+if not seen[k] then
+seen[k] = true
+local fh = fs.open("dev_globals.log", "a")
+if fh then fh.writeLine(os.clock() .. " " .. tostring(k)); fh.close() end
+end
+rawset(t, k, v)
+end})
+end
 parallel.waitForAny(
 function()
 while true do

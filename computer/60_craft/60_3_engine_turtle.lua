@@ -6,7 +6,6 @@ function _turtleCraftLoop(ctx, node, turtleCtx)
 	local turtleSlots    = turtleCtx.turtleSlots
 	local sortedStore = turtleCtx.sortedStore
 	local provSrc        = turtleCtx.provSrc
-	local firstStore   = turtleCtx.firstStore
 	local myCleanup      = turtleCtx.myCleanup
 	local assignments    = turtleCtx.assignments
 	local step           = turtleCtx.step
@@ -21,6 +20,7 @@ function _turtleCraftLoop(ctx, node, turtleCtx)
 	-- push tripped by slow network) shouldnt murder a 500-item craft. bounded
 	-- retries with re-scan, then hard fail. lost a 3h craft to one dry batch
 	local dryStreak, feasRetries = 0, 0
+	local absTarget = (turtleCtx.baselineStore or 0) + totalNeed * (step.output_count or 1)
 
 	while totalDone < totalNeed do
 		if Craft.cancelled then
@@ -61,17 +61,16 @@ function _turtleCraftLoop(ctx, node, turtleCtx)
 		local tScanList = {}
 		for _, s in ipairs(sortedStore) do tScanList[#tScanList + 1] = s end
 		for _, s in ipairs(provSrc)        do tScanList[#tScanList + 1] = s end
+		local tScan = scanPeriph(tScanList, "list")
 		for _, stoName in ipairs(tScanList) do
-			local sto = peripheral.wrap(stoName)
-			if sto and sto.list and sto.pushItems then
-				local okL, lst = pcall(sto.list)
-				if okL and lst then
-					for slot, it in pairs(lst) do
-						if it and tStock[it.name] ~= nil and (it.count or 0) > 0 then
-							tStock[it.name] = tStock[it.name] + it.count
-							local arr = srcByName[it.name]
-							arr[#arr + 1] = {sto = sto, slot = slot, count = it.count}
-						end
+			local e = tScan[stoName]
+			local sto = e and e.data and peripheral.wrap(stoName)
+			if sto and sto.pushItems then
+				for slot, it in pairs(e.data) do
+					if it and tStock[it.name] ~= nil and (it.count or 0) > 0 then
+						tStock[it.name] = tStock[it.name] + it.count
+						local arr = srcByName[it.name]
+						arr[#arr + 1] = {sto = sto, slot = slot, count = it.count}
 					end
 				end
 			end
@@ -126,8 +125,16 @@ function _turtleCraftLoop(ctx, node, turtleCtx)
 		constCap = constCap or 0
 
 		if feasibleOps <= 0 then
+			-- turtles push from real slots, so anything sitting in an ae/rs net
+			-- has to land in a vault before the next rescan can see it
+			local remaining = totalNeed - totalDone
+			for ing, perOp in pairs(ingNeed) do
+				if not helpers.isTool(ing) then
+					local short = perOp * remaining - groupAvail(ing, tStock)
+					if short > 0 then bridgeStage(ing, short) end
+				end
+			end
 			resetStock()
-			local absTarget = (turtleCtx.baselineStore or 0) + totalNeed * (step.output_count or 1)
 			if groupAvail(step.item, getInvCached()) >= absTarget then
 				break
 			end
@@ -141,7 +148,6 @@ function _turtleCraftLoop(ctx, node, turtleCtx)
 			end
 			local itemShort = shortName(step.item)
 			craftErrTitle = "! NEED"
-			local remaining = totalNeed - totalDone
 			local parts = {}
 			for ing, perOp in pairs(ingNeed) do
 				local short = perOp * remaining - groupAvail(ing, tStock)
@@ -164,6 +170,7 @@ function _turtleCraftLoop(ctx, node, turtleCtx)
 			if helpers.isTool(ing) and (tStock[ing] or 0) < 1 then toolMissing = ing; break end
 		end
 		if toolMissing then
+			bridgeStage(toolMissing, 1)
 			releaseTokens(node.tokens)
 			local okTool, toolErr = ensureItem(toolMissing, 1)
 			while not Craft.cancelled and not ctx.failed do
@@ -310,23 +317,33 @@ function _turtleCraftLoop(ctx, node, turtleCtx)
 			for ci, asgn in ipairs(active) do
 				local tName = asgn.name
 				local ri    = ci
+				local want  = (asgn.curBatch or 1) * (step.output_count or 1)
 				craftTasks[#craftTasks + 1] = function()
-					local crafted = false
-					local so = peripheral.wrap(firstStore)
-					for _ = 1, 120 do
+					-- the pull IS the craft detector, a turtle wont list() for us.
+					-- rotate the chest every tick, parked on one a full chest reads
+					-- as "never crafted". count what actually lands: a tool recipe
+					-- dribbles one op per craft call, plain ones drop the lot at once
+					local got, si, idle = 0, 0, 0
+					while idle < 240 do
 						sleepCancel(0.05)
 						if Craft.cancelled then break end
-						if so and so.pullItems then
-							local s, res = pcall(so.pullItems, tName, 16, 64)
-							if s and res and res > 0 then crafted = true; break end
+						si = si % #sortedStore + 1
+						local sto = peripheral.wrap(sortedStore[si])
+						local mv = 0
+						if sto and sto.pullItems then
+							local okp, res = pcall(sto.pullItems, tName, 16, 64)
+							if okp and res then mv = res end
+						end
+						if mv > 0 then
+							got = got + mv
+							idle = 0
+							if got >= want then break end
+						else
+							idle = idle + 1
 						end
 					end
-					if crafted then
-						if so and so.pullItems then
-							for slot = 1, 15 do pcall(so.pullItems, tName, slot, 64) end
-						end
-					end
-					craftResults[ri] = crafted
+					if got > 0 then helpers.clearGrid(tName) end
+					craftResults[ri] = got
 					numDone = numDone + 1
 				end
 			end
@@ -351,9 +368,10 @@ function _turtleCraftLoop(ctx, node, turtleCtx)
 
 			local anyOk, lastFailName = false, nil
 			for ci, asgn in ipairs(active) do
-				if craftResults[ci] then
+				local batch = math.floor((craftResults[ci] or 0) / (step.output_count or 1))
+				if batch > asgn.remaining then batch = asgn.remaining end
+				if batch > 0 then
 					anyOk = true
-					local batch = (asgn.curBatch or 1)
 					asgn.remaining = asgn.remaining - batch
 					totalDone = totalDone + batch
 					local produced = batch * (step.output_count or 1)
@@ -369,6 +387,11 @@ function _turtleCraftLoop(ctx, node, turtleCtx)
 			if anyOk then
 				dryStreak = 0
 			elseif lastFailName then
+				-- a batch we lost track of can still have landed in sto (turtle
+				-- crafted late, clearGrid swept it). look at the shelf before
+				-- recrafting a stack we already have
+				resetStock()
+				if groupAvail(step.item, getInvCached()) >= absTarget then break end
 				dryStreak = dryStreak + 1
 				dbgWrite(string.format("j=%d s=%d turtle.retry idx=%d item=%s reason=dry try=%d turtle=%s done=%d/%d",
 					Craft.jobId or 0, ctx.subId or 0, node.idx or 0,
@@ -424,7 +447,6 @@ end
 function _execStepTurtle(step, ctx, node, state)
 	local sortedStore = state.sortedStore
 	local provSrc        = state.provSrc
-	local firstStore   = state.firstStore
 	local myCleanup      = state.myCleanup
 	local helpers        = state.helpers
 	local plan, i        = state.plan, state.i
@@ -466,25 +488,28 @@ function _execStepTurtle(step, ctx, node, state)
 			return false
 		end
 	end
-	local storageObj = peripheral.wrap(firstStore)
 
-	helpers.slotsDirty = function(tName)
+	helpers.dirtySlots = function(tName)
 		local tp = peripheral.wrap(tName)
 		if not (tp and tp.list) then return nil end
 		local ok, its = pcall(tp.list)
 		if not (ok and its) then return nil end
-		for _, it in pairs(its) do
-			if it and (it.count or 0) > 0 then return true end
+		local slots = {}
+		for slot, it in pairs(its) do
+			if it and (it.count or 0) > 0 then slots[#slots + 1] = slot end
 		end
-		return false
+		return slots
 	end
 
+	-- pull only the slots list() says are loaded. walking 1..16 blind meant
+	-- 15 empty slots x every storage of dead pullItems, and slot 16 came LAST,
+	-- so a finished stack sat in the turtle ~6s of every batch
 	helpers.clearGrid = function(tName)
-		local dirty = helpers.slotsDirty(tName)
-		if dirty == false then return true end
-		if dirty == nil then return blindUnload(tName, sortedStore) end
 		for _attempt = 1, 3 do
-			for slot = 1, 16 do
+			local slots = helpers.dirtySlots(tName)
+			if slots == nil then return blindUnload(tName, sortedStore) end
+			if #slots == 0 then return true end
+			for _, slot in ipairs(slots) do
 				for _, stoName in ipairs(sortedStore) do
 					local sto = peripheral.wrap(stoName)
 					if sto and sto.pullItems then
@@ -493,9 +518,9 @@ function _execStepTurtle(step, ctx, node, state)
 					end
 				end
 			end
-			if helpers.slotsDirty(tName) ~= true then return true end
 		end
-		return false
+		local left = helpers.dirtySlots(tName)
+		return left ~= nil and #left == 0
 	end
 
 	for _, tName in ipairs(turtlePool) do helpers.clearGrid(tName) end
@@ -544,7 +569,7 @@ function _execStepTurtle(step, ctx, node, state)
 	local turtleCtx = {
 		turtlePool = turtlePool, turtleSlots = turtleSlots,
 		sortedStore = sortedStore, provSrc = provSrc,
-		firstStore = firstStore, myCleanup = myCleanup,
+		myCleanup = myCleanup,
 		assignments = assignments, step = step,
 		totalDone = totalDone, totalNeed = totalNeed,
 		turtleStall = turtleStall, helpers = helpers,

@@ -59,7 +59,10 @@ function getInv()
 			end
 		end
 	end
-	local provNames = providerSrc()
+	local provNames = {}
+	for _, nm in ipairs(providerSrc()) do
+		if not isBridge(nm) then provNames[#provNames + 1] = nm end
+	end
 	local pScan = scanPeriph(provNames, "list")
 	for _, nm in ipairs(provNames) do
 		local e = pScan[nm]
@@ -68,6 +71,9 @@ function getInv()
 				if item then inventory[item.name] = (inventory[item.name] or 0) + item.count end
 			end
 		end
+	end
+	for name, cnt in pairs(bridgeStock()) do
+		inventory[name] = (inventory[name] or 0) + cnt
 	end
 	local freeSlots = totalSlots - usedSlots
 	return inventory, totalItems, vaultsCnt, freeSlots, totalSlots
@@ -214,7 +220,7 @@ function scanStorage()
 		end
 	end
 	for _, pName in ipairs(providerSrc()) do
-		if not seen[pName] then seen[pName] = true; names[#names + 1] = pName end
+		if not seen[pName] and not isBridge(pName) then seen[pName] = true; names[#names + 1] = pName end
 	end
 	return names
 end
@@ -277,13 +283,14 @@ pushFromStore = function(itemName, amountNeeded, targetMach, targetSlot, prescan
 		if targetSlot and (mv or 0) == 0 then return "reject" end
 	end
 
+	local rejected = false
 	for _, entry in ipairs(exactSlots) do
 		if Craft.cancelled or moved >= amountNeeded then break end
-		if verifiedPush(entry) == "reject" then break end
+		if verifiedPush(entry) == "reject" then rejected = true; break end
 	end
 	for _, entry in ipairs(altSlots) do
 		if Craft.cancelled or moved >= amountNeeded then break end
-		if verifiedPush(entry) == "reject" then break end
+		if verifiedPush(entry) == "reject" then rejected = true; break end
 	end
 
 	if moved < amountNeeded and targetMach then
@@ -324,6 +331,12 @@ pushFromStore = function(itemName, amountNeeded, targetMach, targetSlot, prescan
 			if not Craft.cancelled then pullReverse(exactSlots) end
 			if not Craft.cancelled then pullReverse(altSlots)   end
 		end
+	end
+
+	-- bridges last, only once the vaults are dry. after a reject the pinned slot
+	-- is dead anyway, pulling out of the net would just strand items in storage
+	if moved < amountNeeded and targetMach and not rejected and not Craft.cancelled then
+		moved = moved + bridgeFeed(itemName, amountNeeded - moved, targetMach, targetSlot)
 	end
 
 	if moved > 0 then resetStock() end
