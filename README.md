@@ -1,25 +1,25 @@
 # A.E.G.I.S autocraft for CC:Tweaked
 
-A.E.G.I.S. is a CC:Tweaked autocraft in plain Lua. The first version was really basic — no dependency tree, no scheduler, just pulling ready components from a chest for one-level crafts. But I got so hooked on the process itself that after half a year of endless tweaking and feature creep the project grew way bigger than I'd originally planned — kind of a *factory core in a single computer*. 12k lines in and I'm still poking at it. Ah right — the factory must grow.
+A.E.G.I.S. is a CC:Tweaked autocraft in plain Lua. The first version was really basic - no dependency tree, no scheduler, just pulling ready components from a chest for one-level crafts. But I got so hooked on the process itself that after half a year of endless tweaking and feature creep the project grew way bigger than I'd originally planned - kind of a *factory core in a single computer*. 12k lines in and I'm still poking at it. Ah right - the factory must grow.
 
 <p align="center"><img src="./images/2026-08-09-20-23-25.png" width="720"></p>
 
 When you order an item, A.E.G.I.S. reads its saved recipes, walks the dependency tree, checks what's already sitting in your vaults and tanks, and only pushes the missing ingredients out to whichever free machines can handle them.
 
-Teaching is interactive: drop the ingredients into T.BOX (3x3 layout for turtle crafts, or just place them for a machine recipe), pick the machine, hit SCAN — recipe is saved. From then on the system walks the dependencies on its own and crafts everything through to the final product. More details in the [Teaching recipes](#teaching-recipes-recipes-tab) section.
+Teaching is interactive: drop the ingredients into T.BOX (3x3 layout for turtle crafts, or just place them for a machine recipe), pick the machine, hit SCAN - recipe is saved. From then on the system walks the dependencies on its own and crafts everything through to the final product. More details in the [Teaching recipes](#teaching-recipes-recipes-tab) section.
 
-A.E.G.I.S. covers almost every mod, but there are exceptions — a few don't expose a standard inventory API to CC:Tweaked. Those still work through a [transfer chest workaround](#known-limitations) between the machine and the network.
+A.E.G.I.S. covers almost every mod, but there are exceptions - a few don't expose a standard inventory API to CC:Tweaked. Those still work through a [transfer chest workaround](#known-limitations) between the machine and the network.
 
 ---
 
 ## Requirements
 
-- **Advanced Computer** — runs `computer/startup.lua`.
-- **Advanced Monitors** — 5x3 or larger is comfortable, other layouts work too.
-- **Crafty Turtle** — Advanced Turtle running `turtle/startup.lua`, used for 3x3 grid recipes.
-- **Storage** — connected chests, vaults, drawers or tanks.
-- **T.BOX** — one barrel or chest used as staging area for teaching recipes and item delivery.
-- **Wired network** — modems on every machine/chest, connected by cable, activated (red ring on).
+- **Advanced Computer** - runs `computer/startup.lua`.
+- **Advanced Monitors** - 5x3 or larger is comfortable, other layouts work too.
+- **Crafty Turtle** - Advanced Turtle running `turtle/startup.lua`, used for 3x3 grid recipes.
+- **Storage** - connected chests, vaults, drawers or tanks.
+- **T.BOX** - one barrel or chest used as staging area for teaching recipes and item delivery.
+- **Wired network** - modems on every machine/chest, connected by cable, activated (red ring on).
 
 ---
 
@@ -69,7 +69,7 @@ A.E.G.I.S. covers almost every mod, but there are exceptions — a few don't exp
 </tr>
 <tr style="background:transparent;">
 <td valign="top" width="42%" style="border:0;background:transparent;"><img src="./images/scan.png" width="380" /></td>
-<td valign="top" style="border:0;background:transparent;"><b>SCAN</b><br><br><b>1.</b> SCAN figures out how many of each item you can actually craft from what's currently in storage. <code>SCAN</code> only checks the recipes on the current page; <code>ALL</code> checks the whole library (can take a moment on a big one).<br><b>2.</b> After it finishes, every recipe shows its max craftable count. A <code>[!]</code> next to a recipe means something is missing — tap it to see the exact list of what's short.<br><b>3.</b> Pressing <code>[CRAFT]</code> runs the same pre-calc for that single item by default. Flip the toggle to manual and the craft window opens without pre-calculating.<br><br>The calculation covers everything: items and fluids in stock, every ALT recipe, hybrid and fluid sub-crafts down the chain, and PROVIDER rules from LOGICK.</td>
+<td valign="top" style="border:0;background:transparent;"><b>SCAN</b><br><br><b>1.</b> SCAN figures out how many of each item you can actually craft from what's currently in storage. <code>SCAN</code> only checks the recipes on the current page; <code>ALL</code> checks the whole library (can take a moment on a big one).<br><b>2.</b> After it finishes, every recipe shows its max craftable count. A <code>[!]</code> next to a recipe means something is missing - tap it to see the exact list of what's short.<br><b>3.</b> Pressing <code>[CRAFT]</code> runs the same pre-calc for that single item by default. Flip the toggle to manual and the craft window opens without pre-calculating.<br><br>The calculation covers everything: items and fluids in stock, every ALT recipe, hybrid and fluid sub-crafts down the chain, and PROVIDER rules from LOGICK.</td>
 </tr>
 <tr style="background:transparent;">
 <td valign="top" width="42%" style="border:0;background:transparent;"><img src="./images/2026-08-09-20-48-13.png" width="380" /></td>
@@ -85,7 +85,7 @@ A.E.G.I.S. covers almost every mod, but there are exceptions — a few don't exp
 </tr>
 <tr style="background:transparent;">
 <td valign="top" width="42%" style="border:0;background:transparent;"><img src="./images/2026-08-09-20-44-09.png" width="380" /></td>
-<td valign="top" style="border:0;background:transparent;"><b>Cancel / cleanup</b><br><br>Output slots are cleared before a sub-task and again on finish. Pressing <code>CANCEL</code> stops the current craft and dumps output slots to vaults. It can't always pull from input slots though — some mods block that (see limitations).</td>
+<td valign="top" style="border:0;background:transparent;"><b>Cancel / cleanup</b><br><br>Output slots are cleared before a sub-task and again on finish. Pressing <code>CANCEL</code> stops the current craft and dumps output slots to vaults. It can't always pull from input slots though - some mods block that (see limitations).</td>
 </tr>
 </table>
 
@@ -100,11 +100,11 @@ A.E.G.I.S. covers almost every mod, but there are exceptions — a few don't exp
 </tr>
 <tr style="background:transparent;">
 <td valign="top" width="42%" style="border:0;background:transparent;"><img src="./images/2026-08-09-20-39-38.png" width="380" /></td>
-<td valign="top" style="border:0;background:transparent;"><b>Custom groups</b><br><br>You can also group machines manually — e.g. split Create Depots into <code>Depot Forge</code> vs <code>Depot Press</code>. If you add a machine to a custom group, exclude it from auto-grouping, otherwise it ends up in both.</td>
+<td valign="top" style="border:0;background:transparent;"><b>Custom groups</b><br><br>You can also group machines manually - e.g. split Create Depots into <code>Depot Forge</code> vs <code>Depot Press</code>. If you add a machine to a custom group, exclude it from auto-grouping, otherwise it ends up in both.</td>
 </tr>
 <tr style="background:transparent;">
 <td valign="top" width="42%" style="border:0;background:transparent;"><img src="./images/2026-08-09-20-25-28.png" width="380" /></td>
-<td valign="top" style="border:0;background:transparent;"><b>Suffixes</b><br><br>A machine can be assigned a display suffix (<code>SUF</code>) in the NETWORK tab — purely cosmetic, just helps organize machine names so they're easier to scan.</td>
+<td valign="top" style="border:0;background:transparent;"><b>Suffixes</b><br><br>A machine can be assigned a display suffix (<code>SUF</code>) in the NETWORK tab - purely cosmetic, just helps organize machine names so they're easier to scan.</td>
 </tr>
 <tr style="background:transparent;">
 <td valign="top" width="42%" style="border:0;background:transparent;"><img src="./images/2026-08-09-20-20-44.png" width="380" /></td>
@@ -119,7 +119,7 @@ A.E.G.I.S. covers almost every mod, but there are exceptions — a few don't exp
 <table border="0" cellspacing="0" cellpadding="8" style="border-collapse:collapse;border:0;background:transparent;">
 <tr style="background:transparent;">
 <td valign="top" width="42%" style="border:0;background:transparent;"><img src="./images/2026-08-09-20-16-47.png" width="380" /></td>
-<td valign="top" style="border:0;background:transparent;"><b>Hybrid & sequential pouring</b><br><br>Solid + fluid recipes work — fluid volumes are tracked in mB, and multiple fluids can be poured one after another. Full walkthrough on the screenshot.<br>Multiblocks with several fluid hatches — pipe them to one transfer tank and set it as the recipe INPUT. Same trick works for OUTPUT.</td>
+<td valign="top" style="border:0;background:transparent;"><b>Hybrid & sequential pouring</b><br><br>Solid + fluid recipes work - fluid volumes are tracked in mB, and multiple fluids can be poured one after another. Full walkthrough on the screenshot.<br>Multiblocks with several fluid hatches - pipe them to one transfer tank and set it as the recipe INPUT. Same trick works for OUTPUT.</td>
 </tr>
 <tr style="background:transparent;">
 <td valign="top" width="42%" style="border:0;background:transparent;"><img src="./images/2026-08-09-20-07-57.png" width="380" /></td>
@@ -142,7 +142,7 @@ A.E.G.I.S. covers almost every mod, but there are exceptions — a few don't exp
 </tr>
 <tr style="background:transparent;">
 <td valign="top" width="42%" style="border:0;background:transparent;"><img src="./images/2026-08-09-20-51-53.png" width="380" /></td>
-<td valign="top" style="border:0;background:transparent;"><b>Priority order</b><br><br>KEEP entries run in the order you set them — higher entries first.</td>
+<td valign="top" style="border:0;background:transparent;"><b>Priority order</b><br><br>KEEP entries run in the order you set them - higher entries first.</td>
 </tr>
 <tr style="background:transparent;">
 <td valign="top" width="42%" style="border:0;background:transparent;"><img src="./images/2026-08-09-21-00-11.png" width="380" /></td>
@@ -164,17 +164,21 @@ A.E.G.I.S. covers almost every mod, but there are exceptions — a few don't exp
 <td valign="top" style="border:0;background:transparent;"><b>OPTIMIZE</b><br><br><code>OPTIMIZE</code> walks every vault, merges unstacked stacks of the same item, and consolidates matching items into one place.</td>
 </tr>
 <tr style="background:transparent;">
-<td colspan="2" valign="top" style="border:0;background:transparent;"><b>LOGICK transfer rules</b><br><br>LOGICK replaces item/fluid pipes with rule-based transfers.<br>INPUT and OUTPUT can each point at several machines or vaults — the system spreads the resource evenly across the group.<br>Fluids work too: pick a tank as INPUT and the rule switches to fluid mode.</td>
+<td colspan="2" valign="top" style="border:0;background:transparent;"><h2>LOGICK</h2>LOGICK replaces item/fluid pipes with rule-based transfers.<br>INPUT and OUTPUT can each point at several machines or vaults, the system spreads the resource evenly across the group.<br>Fluids work too: pick a tank as INPUT and the rule switches to fluid mode.</td>
 </tr>
 <tr style="background:transparent;height:210px;">
 <td rowspan="3" valign="top" width="42%" style="border:0;background:transparent;"><img src="./images/2026-08-09-20-02-54.png" width="380" /></td>
-<td valign="middle" style="border:0;background:transparent;"><b>Standard</b> — keeps the resource at the set amount.</td>
+<td valign="middle" style="border:0;background:transparent;"><b>Standard</b> - keeps the resource at the set amount.</td>
 </tr>
 <tr style="background:transparent;height:210px;">
-<td valign="middle" style="border:0;background:transparent;"><b>Provider</b> — pull-only: the system can take resources out but never puts anything back.</td>
+<td valign="middle" style="border:0;background:transparent;"><b>Provider</b> - pull-only: the system can take resources out but never puts anything back.</td>
 </tr>
 <tr style="background:transparent;height:210px;">
-<td valign="middle" style="border:0;background:transparent;"><b>IF</b> — conditional, like *move wood if charcoal < 32*. You can stack several IF rules in one group, and pick <code>&lt;</code>, <code>&gt;</code> or <code>=</code> as the operator.</td>
+<td valign="middle" style="border:0;background:transparent;"><b>IF</b> - conditional, like *move wood if charcoal < 32*. You can stack several IF rules in one group, and pick <code>&lt;</code>, <code>&gt;</code> or <code>=</code> as the operator.</td>
+</tr>
+<tr style="background:transparent;">
+<td valign="top" width="42%" style="border:0;background:transparent;"><img src="./images/AE2_RS.png" width="380" /></td>
+<td valign="top" style="border:0;background:transparent;"><b>AE2 / RS storage</b><br><br>AE2/RS via Advanced Peripherals: AEGIS only pulls from the network, never pushes anything back. Wire the ME/RS Bridge to your AE2/RS and to the AEGIS modem, then set the LOGICK rule as on the screenshot.</td>
 </tr>
 </table>
 
@@ -197,10 +201,10 @@ A.E.G.I.S. covers almost every mod, but there are exceptions — a few don't exp
 </tr>
 <tr style="background:transparent;">
 <td valign="top" width="42%" style="border:0;background:transparent;"><img src="./images/log.png" width="380" /></td>
-<td valign="top" style="border:0;background:transparent;"><b>dbglog</b><br><br>Debug logging is off by default — toggle it in the <code>SERVICE</code> tab. Logs are written to the computer's directory. On reboot or when a new craft starts the current log rotates: the previous one becomes <code>factory_dbg.log.old</code>. Turning logging off wipes all log files.</td>
+<td valign="top" style="border:0;background:transparent;"><b>dbglog</b><br><br>Debug logging is off by default - toggle it in the <code>SERVICE</code> tab. Logs are written to the computer's directory. On reboot or when a new craft starts the current log rotates: the previous one becomes <code>factory_dbg.log.old</code>. Turning logging off wipes all log files.</td>
 </tr>
 <tr style="background:transparent;">
-<td colspan="2" valign="top" style="border:0;background:transparent;"><b><a href="./API.md">AEGIS API</a></b><br><br>Small Lua API under <code>aegis.*</code> — same internals the on-monitor UI uses, so anything you can do by tapping the screen you can also drive from code. Works locally on the A.E.G.I.S. computer, or remotely over RedNet on protocol <code>aegis_remote</code>.<br>Covers item and fluid stock, the recipe library (with ALTs and producers), craft planning and enqueue, and live job/queue status. Full reference in <a href="./API.md">API.md</a>.</td>
+<td colspan="2" valign="top" style="border:0;background:transparent;"><b><a href="./API.md">AEGIS API</a></b><br><br>Small Lua API under <code>aegis.*</code> - same internals the on-monitor UI uses, so anything you can do by tapping the screen you can also drive from code. Works locally on the A.E.G.I.S. computer, or remotely over RedNet on protocol <code>aegis_remote</code>.<br>Covers item and fluid stock, the recipe library (with ALTs and producers), craft planning and enqueue, and live job/queue status. Full reference in <a href="./API.md">API.md</a>.</td>
 </tr>
 </table>
 
@@ -208,11 +212,11 @@ A.E.G.I.S. covers almost every mod, but there are exceptions — a few don't exp
 
 ## Known limitations
 
-- Some mods don't expose machine input/output inventories through the CC:Tweaked peripheral API. For those you can usually put a chest between the machine and the network — [guide](https://www.reddit.com/r/ComputerCraft/comments/1uyx4td/comment/oy8femh/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button).
-- Some mods let you push into an input slot but not pull out of it. `CANCEL` can't always recover items from those input slots — check them by hand after a cancel.
+- Some mods don't expose machine input/output inventories through the CC:Tweaked peripheral API. For those you can usually put a chest between the machine and the network - [guide](https://www.reddit.com/r/ComputerCraft/comments/1uyx4td/comment/oy8femh/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button).
+- Some mods let you push into an input slot but not pull out of it. `CANCEL` can't always recover items from those input slots - check them by hand after a cancel.
 - Multiblocks may need transfer chests or separate input/output hatches, depending on how the mod wires them up.
-- CC:Tweaked computers have a 1 MB filesystem cap. If new recipes stop saving or vanish on reboot, the computer folder is full — delete old `.BAK` files.
-- Solid-fuel furnaces need a specific setup — [guide](https://www.reddit.com/r/ComputerCraft/comments/1uyx4td/comment/oyb7z51/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button).
+- CC:Tweaked computers have a 1 MB filesystem cap. If new recipes stop saving or vanish on reboot, the computer folder is full - delete old `.BAK` files.
+- Solid-fuel furnaces need a specific setup - [guide](https://www.reddit.com/r/ComputerCraft/comments/1uyx4td/comment/oyb7z51/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button).
 - Machines must stay chunk-loaded for a job to keep running.
 - Keep an eye on free vault and tank space at the top of the monitor. If there's nowhere to unload, collection tasks stall.
 
@@ -222,7 +226,7 @@ A.E.G.I.S. covers almost every mod, but there are exceptions — a few don't exp
   <img src="./images/2026-08-09-20-57-35.png" width="380" />
 </p>
 
-Tested on Modern Industrialization, Create, Greg_th, PneumaticCraft, and a bunch of others — most machines from most mods just work. Some mods (like Mekanism) lack CC integration and need a workaround, usually a chest between the machine and the network.
+Tested on Modern Industrialization, Create, Greg_th, PneumaticCraft, and a bunch of others - most machines from most mods just work. Some mods (like Mekanism) lack CC integration and need a workaround, usually a chest between the machine and the network.
 
 ---
 
