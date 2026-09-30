@@ -2,7 +2,7 @@ function _touchRecipes(zone, x, y)
 	if zone.id == "craft_subtab" then
 		craftSubTab = zone.arg
 		craftDevPage = 1
-		if zone.arg == "TURTLE" then
+		if zone.arg == "TURTLE" or zone.arg == "CRAFTER" then
 			selCraftType = "turtle"
 			selOut = nil
 			outPickMode = false
@@ -16,6 +16,23 @@ function _touchRecipes(zone, x, y)
 			fluidScanStatus = ""
 		else
 			fluidLearnStage = nil
+		end
+		return true
+	elseif zone.id == "crafter_detect" then
+		local found = detectCrafters()
+		crafterCfg().cells = found
+		saveData()
+		uiMessage = "Crafter grid: " .. #found .. " cells. Recipes use this cell list."
+		if uiMsgTimer then os.cancelTimer(uiMsgTimer) end
+		uiMsgTimer = os.startTimer(4)
+		return true
+	elseif zone.id == "crafter_lock_toggle" then
+		local lk = crafterLocked()
+		if lk == nil then
+			uiMessage = "ERR: tag a redstone relay as [CLUTCH] in NETWORK"
+		else
+			local ok, err = crafterSetLock(not lk)
+			if not ok then uiMessage = "ERR: " .. tostring(err) end
 		end
 		return true
 	elseif zone.id == "craft_dev_prev" then
