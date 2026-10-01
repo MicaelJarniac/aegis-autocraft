@@ -3,10 +3,14 @@
 -- ingredient per cell ("nil" = empty), so a recipe only fits the grid it was
 -- learned on.
 -- crafter inventory is INSERT ONLY (create calls forbidExtraction). nothing we
--- push in can be pulled back out, so every load checks stock + empty cells first
--- and a failed load leaves the grid locked for the player to empty by hand.
+-- push in can be pulled back out, so every load checks stock + empty cells first,
+-- and once the first item is in, the cycle is COMMITTED (cancel waits for it).
+-- a player CAN take items back: empty-hand right-click on the crafter front.
 -- clutch relay ON = clutch disengaged = speed 0 = crafters never start.
 CRAFTER_MACHINE = "mechanical_crafter"
+-- marks the committed cycle. survives reboot so a half-loaded grid can be
+-- finished instead of wedging every later crafter craft
+CRAFTER_JOB_FILE = "factory_crafter_job.json"
 -- slowest crafter speed (4 rpm) on a 5x5 chain is ~2 min per craft
 CRAFTER_TIMEOUT = 180
 CRAFTER_START_WAIT = 6
@@ -136,14 +140,21 @@ function crafterReadCells()
 	return res
 end
 
+-- committed = items already in the grid. plain sleep + no cancel exit, a
+-- bailed start leaves a loaded grid that nobody can unload
+local function crafterSleep(t, committed)
+	if committed then sleep(t) else sleepCancel(t) end
+end
+
 -- a loaded cell going empty = create began the chain (begin() empties every
 -- inventory at once). still full after the wait = never kicked
-function crafterWaitStart(loaded, secs)
+function crafterWaitStart(loaded, secs, committed, onTick)
 	local t, repulsed = 0, false
 	while t < secs do
-		sleepCancel(0.5)
+		if onTick then onTick() end
+		crafterSleep(0.5, committed)
 		t = t + 0.5
-		if Craft.cancelled then return false end
+		if Craft.cancelled and not committed then return false end
 		local cur = crafterReadCells()
 		if cur then
 			for idx, ing in ipairs(loaded) do
@@ -160,12 +171,89 @@ function crafterWaitStart(loaded, secs)
 end
 
 -- unlock + kick. returns true once the chain is running
-function crafterStart(loaded)
+function crafterStart(loaded, committed, onTick)
 	local ok, err = crafterSetLock(false)
 	if not ok then return false, err end
-	sleepCancel(0.6)
+	crafterSleep(0.6, committed)
 	crafterPulse()
-	return crafterWaitStart(loaded, CRAFTER_START_WAIT)
+	return crafterWaitStart(loaded, CRAFTER_START_WAIT, committed, onTick)
+end
+
+function crafterJobSave(job)
+	local ok, data = pcall(textutils.serializeJSON, job)
+	if not (ok and type(data) == "string") then return end
+	local fh = fs.open(CRAFTER_JOB_FILE, "w")
+	if fh then fh.write(data); fh.close() end
+end
+
+function crafterJobLoad()
+	if not fs.exists(CRAFTER_JOB_FILE) then return nil end
+	local fh = fs.open(CRAFTER_JOB_FILE, "r")
+	if not fh then return nil end
+	local raw = fh.readAll() or ""
+	fh.close()
+	local ok, j = pcall(textutils.unserializeJSON, raw)
+	if ok and type(j) == "table" and type(j.item) == "string"
+	and type(j.ings) == "table" and type(j.cells) == "table" then return j end
+	return nil
+end
+
+function crafterJobClear()
+	if fs.exists(CRAFTER_JOB_FILE) then fs.delete(CRAFTER_JOB_FILE) end
+end
+
+function crafterGridEmpty(cur)
+	for _, v in ipairs(cur) do if v ~= "nil" then return false end end
+	return true
+end
+
+-- what the leftover grid is meant to become. cur = crafterReadCells().
+-- job file first (exact items we pushed), else the one known crafter recipe
+-- the grid is still consistent with. returns tgt {item, ings, cells, perOp}
+-- in recipe order, or nil + why
+function crafterResidueTarget(cur)
+	local function fits(ings, cells, exact)
+		local covered = {}
+		for k, cell in ipairs(cells) do
+			local gi = crafterCellIdx(cell)
+			if not gi then return false end
+			covered[gi] = true
+			local have, want = cur[gi], ings[k] or "nil"
+			if have ~= "nil" and have ~= want then
+				if exact or want == "nil" then return false end
+				local alt = false
+				for _, a in ipairs(Groups.altsOf(want) or {}) do
+					if a == have then alt = true; break end
+				end
+				if not alt then return false end
+			end
+		end
+		for gi, have in ipairs(cur) do
+			if have ~= "nil" and not covered[gi] then return false end
+		end
+		return true
+	end
+	local job = crafterJobLoad()
+	if job and fits(job.ings, job.cells, true) then
+		return {item = job.item, ings = job.ings, cells = job.cells, perOp = job.perOp or 1, fromJob = true}
+	end
+	local found, items = {}, {}
+	local function consider(name, r)
+		if type(r) == "table" and r.type == "crafter" and type(r.grid_cells) == "table"
+		and fits(r.ingredients or {}, r.grid_cells, false) then
+			found[#found + 1] = {item = name, ings = r.ingredients, cells = r.grid_cells, perOp = r.output_count or 1}
+			items[name] = true
+		end
+	end
+	for name, r in pairs(Recipe.all()) do consider(name, r) end
+	for name, alts in pairs(Recipe.allAlts()) do
+		for _, r in ipairs(alts) do consider(name, r) end
+	end
+	local nItems = 0
+	for _ in pairs(items) do nItems = nItems + 1 end
+	if nItems == 1 then return found[1] end
+	if nItems == 0 then return nil, "no known crafter recipe matches the grid" end
+	return nil, nItems .. " recipes match the grid - empty it by hand"
 end
 
 function crafterOutList()

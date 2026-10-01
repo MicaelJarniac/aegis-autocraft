@@ -26,6 +26,16 @@ function _touchRecipes(zone, x, y)
 		if uiMsgTimer then os.cancelTimer(uiMsgTimer) end
 		uiMsgTimer = os.startTimer(4)
 		return true
+	elseif zone.id == "crafter_finish" then
+		sysStatus = "MANUAL_CRAFT"
+		uiMessage = runCrafterFinish()
+		sysStatus = "IDLE"
+		pendingTouches = {}
+		return true
+	elseif zone.id == "crafter_forget" then
+		crafterJobClear()
+		uiMessage = "Forgot unfinished cycle. Empty the grid by hand if needed."
+		return true
 	elseif zone.id == "crafter_lock_toggle" then
 		local lk = crafterLocked()
 		if lk == nil then

@@ -3,11 +3,16 @@
 -- the crafter output inv and hand it to T.BOX (or vaults when no T.BOX).
 learnedGridCells = nil
 
-local function crafterLearnPopup(stage)
+local function crafterLearnPopup(stage, noCancel)
 	local w, h = monitor.getSize()
 	local pW, pH = math.min(w - 6, 56), 9
 	local pX, pY = UI.popup(pW, pH, w, h, " CRAFTER LEARNING ", "warn")
 	drawText(pX + 2, pY + 3, ("STATUS: " .. stage):sub(1, pW - 4), colors.lightGray, colors.gray)
+	if noCancel then
+		craftCancelY = nil
+		_bufFlush()
+		return
+	end
 	local cancStr = " [ CANCEL ] "
 	local cancX = pX + math.floor((pW - #cancStr) / 2)
 	drawText(cancX, pY + pH - 2, cancStr, colors.white, colors.red)
@@ -61,12 +66,10 @@ function runCrafterSearch()
 		return "ERR: crafter output not empty (vaults full?)"
 	end
 
-	crafterLearnPopup("Starting crafters...")
-	local started, sErr = crafterStart(ings)
-	if Craft.cancelled then
-		pcall(crafterSetLock, true); craftCancelY = nil
-		return "Learning cancelled."
-	end
+	-- the player's items are in the grid and cant be taken back by us, so the
+	-- start is never cancelled halfway. cancel is offered again while waiting
+	crafterLearnPopup("Starting crafters...", true)
+	local started, sErr = crafterStart(ings, true)
 	if not started then
 		pcall(crafterSetLock, true); craftCancelY = nil
 		if sErr then return "ERR: " .. tostring(sErr) end
@@ -150,6 +153,50 @@ function drawCrafterLearn(w, h, touchZones)
 	elseif lk == false then lkS, lkStyle = " [ RUNNING - tap to LOCK ] ", "ok" end
 	UI.btn(touchZones, math.floor((w - #lkS) / 2) + 1, y + 5, lkS, lkStyle, "crafter_lock_toggle")
 
+	-- always offered: a leftover grid can predate the job file (or lose it).
+	-- not scanning the cells here, drawUI runs too often for 25 peripheral calls
+	local job = crafterJobLoad()
+	local fS = " [ FINISH GRID ] "
+	local cS = " [ FORGET ] "
+	local msg = job and ("Unfinished cycle: " .. shortName(job.item) .. "  ") or "Grid left part-loaded?  "
+	local rowW = #msg + #fS + (job and (1 + #cS) or 0)
+	local x0 = math.max(2, math.floor((w - rowW) / 2) + 1)
+	UI.text(x0, y + 6, msg, job and UI.C.hi or UI.C.muted)
+	UI.btn(touchZones, x0 + #msg, y + 6, fS, job and "warn" or "mute", "crafter_finish")
+	if job then UI.btn(touchZones, x0 + #msg + #fS + 1, y + 6, cS, "mute", "crafter_forget") end
+
 	UI.textC(y + 7, w, "LOCK, place the recipe into the crafters, then SCAN.", UI.C.muted)
 	UI.textC(y + 8, w, "Crafter inputs must NOT be wrench-connected.", UI.C.soft)
+end
+
+-- manual recovery: finish whatever the grid holds (job file or a matching recipe)
+function runCrafterFinish()
+	local ok, why = crafterReady()
+	if not ok then return "ERR: crafter " .. tostring(why) end
+	local cur, rErr = crafterReadCells()
+	if not cur then return "ERR: " .. tostring(rErr) end
+	if crafterGridEmpty(cur) then
+		crafterJobClear()
+		return "Grid is already empty."
+	end
+	local tgt, tErr = crafterResidueTarget(cur)
+	if not tgt then return "ERR: " .. tostring(tErr) end
+	Craft.cancelled = false
+	crafterSetLock(true)
+	crafterDrainOut(pushStoList())
+	local function tick() crafterLearnPopup("Finishing " .. shortName(tgt.item) .. " (can't be cancelled)...", true) end
+	tick()
+	local okC, err, got, short = crafterRunCycle(tgt, cur, pushStoList(), scanStorage(), tick)
+	craftCancelY = nil
+	pcall(crafterSetLock, true)
+	if okC then
+		return "Finished: " .. ((got and got[tgt.item]) or 0) .. "x " .. shortName(tgt.item) .. " -> vaults"
+	end
+	if short then
+		local parts = {}
+		for ing, n in pairs(short) do parts[#parts + 1] = n .. "x " .. shortName(ing) end
+		table.sort(parts)
+		return "ERR: need " .. table.concat(parts, ", ")
+	end
+	return "ERR: " .. tostring(err and err.lines and err.lines[1] or "cycle failed")
 end
